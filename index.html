@@ -19,6 +19,7 @@
             -webkit-user-select: none; 
             -moz-user-select: none;    
             -ms-user-select: none;     
+            overscroll-behavior-y: none; /* プル・トゥ・リフレッシュを無効化 */
         }
         .controls {
             padding: 8px; 
@@ -31,6 +32,7 @@
             min-width: 120px; /* スマホで狭くても最低幅確保 */
             overflow-y: auto; /* 高さ超過時はスクロール */
             max-height: 100vh; /* 画面高さ制限 */
+            overscroll-behavior-y: auto; /* パネル内はスクロール可能 */
         }
         .controls h2, .controls h3 { display: none; }
         .controls label, .controls select, .controls button, .controls input[type="number"], .controls input[type="text"] {
@@ -848,7 +850,7 @@
         function makeDraggable(element) {
             let isDragging = false;
             let offsetX, offsetY;
-            let initialPosition = {}; 
+            let initialPosition = {};
             let loadingBay = document.getElementById('loading-bay');
             
             let dragStarted = false; 
@@ -871,7 +873,7 @@
             }
 
             element.addEventListener('mousedown', startDrag);
-            element.addEventListener('touchstart', startDragTouch); 
+            element.addEventListener('touchstart', startDragTouch, { passive: false }); 
 
             function startDrag(e) {
                 if (e.button === 2) { 
@@ -946,12 +948,18 @@
                 
                 dragStarted = true; 
 
-                if (e.cancelable) {
-                    e.preventDefault(); 
-                }
-                
+                // 荷台外のスクロールを許可
+                const bayRect = getBayRect();
                 const clientX = e.clientX || e.touches[0].clientX;
                 const clientY = e.clientY || e.touches[0].clientY;
+                const isOutsideBay = clientX < bayRect.left || clientX > bayRect.left + bayRect.width * bayRect.scale ||
+                                     clientY < bayRect.top || clientY > bayRect.top + bayRect.height * bayRect.scale;
+                if (isOutsideBay) {
+                    return; // 荷台外ならデフォルト動作（スクロール）を許可
+                }
+                if (e.cancelable) {
+                    e.preventDefault(); // 荷台内ではデフォルト動作をキャンセル
+                }
                 
                 const bayRect = getBayRect();
                 
@@ -1006,9 +1014,7 @@
             }
 
             function stopDrag(e) {
-                if (!isDragging) {
-                    return; 
-                }
+                if (!isDragging) return;
                 
                 const isTouchEvent = e.type.startsWith('touch');
                 const endClientX = isTouchEvent ? e.changedTouches[0].clientX : e.clientX;
